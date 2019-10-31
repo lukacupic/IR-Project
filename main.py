@@ -24,7 +24,7 @@ def preprocess(text):
 	return stemmed
 
 def main():
-	raw = parser.from_file('astro.pdf')
+	raw = parser.from_file('dataset/astro.pdf')
 	data = raw["content"].lower()
 	print(preprocess(data))
 
