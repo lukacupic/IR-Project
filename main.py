@@ -6,6 +6,9 @@ from tika import parser
 import numpy as np
 import re
 
+numberPattern = re.compile("^[-+]?[0-9]+$")
+singlePattern = re.compile("^[a-z][A-Z][0-9]$")
+
 ps = PorterStemmer()
 
 def preprocess(text):
@@ -19,13 +22,23 @@ def preprocess(text):
 	
 	stops = stopwords.words('english')
 	filtered = [w for w in words if w not in stops]
+	filtered = [w for w in filtered if not match(w)]
 	
 	stemmed = [ps.stem(w) for w in filtered]
 	return stemmed
 
+def match(word):
+	if numberPattern.match(word):
+		return True
+
+	if singlePattern.match(word):
+		return True
+
 def main():
 	raw = parser.from_file('dataset/astro.pdf')
 	data = raw["content"].lower()
-	print(preprocess(data))
+	
+	words = preprocess(data)
+	print(words)
 
 main()
