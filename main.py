@@ -34,7 +34,7 @@ def preprocess(text):
 	words = [w for w in words if not match(w)]
 	
 	# convert numbers
-	words = [words2num(w) for w in words if numberPattern.match(w)]
+	words = [num2words(w) for w in words if numberPattern.match(w)]
 	
 	# perform stemming
 	words = [ps.stem(w) for w in words]
