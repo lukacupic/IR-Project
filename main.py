@@ -10,6 +10,7 @@ from tika import parser
 from num2words import num2words
 import numpy as np
 import re
+import os
 
 ps = PorterStemmer()
 lm = WordNetLemmatizer()
@@ -17,6 +18,12 @@ lm = WordNetLemmatizer()
 letterPattern = re.compile("^[a-z][A-Z]$")
 numberPattern = re.compile("^[-+]?[0-9]+$")
 stops = stopwords.words('english')
+
+def bitVector(d, mainVector):
+	bv = []
+	for w in mainVector:
+		bv.append('1' if w in d else '0')
+	return bv
 
 def preprocess(text):
 	'''
@@ -51,10 +58,44 @@ def match(word):
 	return False
 
 def main():
-	raw = parser.from_file('dataset/astro.pdf')
-	data = raw["content"].lower()
+	mainVector = set()
+	documents = []
+	counter = 0
 	
-	words = preprocess(data)
-	print(words)
+	for root, subdirs, files in os.walk('./dataset'):
+		if counter is 5:
+			break
+			
+		for filename in files:
+			if counter is 5:
+				break
+			
+			filePath = os.path.join(root, filename)
+
+			raw = parser.from_file(filePath)
+			data = raw["content"].lower()
+		
+			words = preprocess(data)
+			
+			mainVector.update(words)
+			documents.append(words)
+			
+			counter = counter + 1
+	
+	mainList = list(mainVector)
+	
+	#for d in documents:
+		#vector = bitVector(d, mainVector)
+		
+	print(bitVector(documents[0], mainVector))
 
 main()
+
+
+
+
+
+
+
+
+
