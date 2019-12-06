@@ -88,11 +88,8 @@ def main():
 	
 	tfVectors = []
 	for d in documents:
-		#vector = bitVector(d, corpusVector)
 		vector = tfVector(d, corpusVector)
 		tfVectors.append(vector)
-		#print(vector)
-	#print(corpusVector)
 	
 	corpusList = list(corpusVector)
 	idf = []
