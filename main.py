@@ -1,46 +1,27 @@
-import nltk
+# uncomment if necessary
+# nltk.download('stopwords')
+# nltk.download('wordnet')
 
-nltk.download('stopwords')
-nltk.download('wordnet')
-
-from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
-from nltk.stem import WordNetLemmatizer
-from tika import parser
-
-from num2words import num2words
-from collections import Counter
-import numpy as np
 import math
 import re
 import os
 
-ps = PorterStemmer()
-lm = WordNetLemmatizer()
+from nltk.corpus import stopwords
+from num2words import num2words
+from collections import Counter
+from tika import parser
+from nltk import stem
+import numpy as np
+import nltk
 
-letterPattern = re.compile("^[a-z][A-Z]$")
-numberPattern = re.compile("^[-+]?[0-9]+$")
+ps = stem.PorterStemmer()
+lm = stem.WordNetLemmatizer()
+
 stops = stopwords.words('english')
-
-def bitVector(d, corpusVector):
-	bv = []
-	for w in corpusVector:
-		bv.append(1 if w in d else 0)
-	return bv
-
-def tfVector(d, corpusVector):
-	tf = []
-	counts = Counter(list(d))
-	for w in corpusVector:
-		tf.append(counts[w])
-	return tf
+letter = re.compile("^[a-z][A-Z]$")
+number = re.compile("^[-+]?[0-9]+$")
 
 def preprocess(text):
-	'''
-	Performs pre-processing of the given text and converts it
-	into a list of words.
-	'''
-	
 	# get all the words
 	words = re.findall(r'\w+', text.lower())
 	
@@ -48,10 +29,10 @@ def preprocess(text):
 	words = [w for w in words if w not in stops]
 	
 	# remove matched words
-	words = [w for w in words if not match(w)]
+	words = [w for w in words if not letter.match(w)]
 	
 	# convert numbers
-	words = [num2words(w) if numberPattern.match(w) else w for w in words]
+	words = [num2words(w) if number.match(w) else w for w in words]
 	
 	# perform stemming
 	words = [ps.stem(w) for w in words]
@@ -59,22 +40,58 @@ def preprocess(text):
 	# perform lemmatization
 	words = [lm.lemmatize(w, pos="v") for w in words]
 	
+	# return a list of words, essentially representing a document
 	return words
 
-def match(word):
-	if letterPattern.match(word):
-		return True
-	
-	return False
+def toBitVector(d, corpusVector):
+	bv = []
+	for w in corpusVector:
+		bv.append(1 if w in d else 0)
+	return bv
 
-def main():
+def toTfVector(d, corpusVector):
+	tf = []
+	counts = Counter(list(d))
+	for w in corpusVector:
+		tf.append(counts[w])
+	return tf
+
+def createTfVectors(documents, corpusVector):
+	tfs = []
+	for d in documents:
+		vector = toTfVector(d, corpusVector)
+		tfs.append(vector)
+	return tfs
+
+def createIdfVector(corpusList, tfVectors, documents):
+	corpusLen = len(corpusList)
+	docsLen = len(documents)
+	
+	idf = []
+	for i in range(corpusLen):
+		count = 0
+		for tf in tfVectors:
+			if tf[i] is not 0:
+				count = count + 1
+		idf.append(math.log(docsLen / count, 10))
+	return idf
+
+def createTfIdfVectors(idf, tfVectors):
+	tfidfs = []
+	npidf = np.array(idf)
+	for tf in tfVectors:
+		tfidfs.append(np.array(tf) * npidf)
+	return tfidfs
+
+def readDataset(path):
 	corpusVector = set()
 	documents = []
 	counter = 0
 	
-	for root, subdirs, files in os.walk('./dataset-small'):
+	for root, subdirs, files in os.walk(path):
 		for filename in files:
 			filePath = os.path.join(root, filename)
+			
 			if not filePath.endswith('.txt'):
 				continue
 
@@ -86,25 +103,14 @@ def main():
 			corpusVector.update(words)
 			documents.append(words)
 	
-	tfVectors = []
-	for d in documents:
-		vector = tfVector(d, corpusVector)
-		tfVectors.append(vector)
+	return corpusVector, documents
+
+def main():
+	corpusVector, documents = readDataset('./dataset-small')
 	
-	corpusList = list(corpusVector)
-	idf = []
-	
-	for i in range(len(corpusList)):
-		count = 0
-		for tf in tfVectors:
-			if tf[i] is not 0:
-				count = count + 1
-		idf.append(math.log(len(documents)/count, 10))
-	
-	tfidfs = []
-	npidf = np.array(idf)
-	for tf in tfVectors:
-		tfidfs.append(np.array(tf) * npidf)
+	tfs = createTfVectors(documents, corpusVector)
+	idf = createIdfVector(list(corpusVector), tfs, documents)
+	tfidfs = createTfIdfVectors(idf, tfs)
 		
 	print(corpusVector)
 	for tfidf in tfidfs:
