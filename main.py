@@ -47,19 +47,23 @@ def toBitVector(d, corpusVector):
 	bv = []
 	for w in corpusVector:
 		bv.append(1 if w in d else 0)
-	return bv
+	return np.array(bv)
+
+def logTransform(vector):
+	return np.log10(1 + vector)
 
 def toTfVector(d, corpusVector):
 	tf = []
-	counts = Counter(list(d))
+	counts = Counter(d)
 	for w in corpusVector:
 		tf.append(counts[w])
-	return tf
+	return np.array(tf)
 
 def createTfVectors(documents, corpusVector):
 	tfs = []
 	for d in documents:
 		vector = toTfVector(d, corpusVector)
+		# vector = logTransform(vector)
 		tfs.append(vector)
 	return tfs
 
@@ -71,16 +75,15 @@ def createIdfVector(corpusList, tfVectors, documents):
 	for i in range(corpusLen):
 		count = 0
 		for tf in tfVectors:
-			if tf[i] is not 0:
+			if tf[i] != 0:
 				count = count + 1
-		idf.append(math.log(docsLen / count, 10))
-	return idf
+		idf.append(np.log10(docsLen / count))
+	return np.array(idf)
 
 def createTfIdfVectors(idf, tfVectors):
 	tfidfs = []
-	npidf = np.array(idf)
 	for tf in tfVectors:
-		tfidfs.append(np.array(tf) * npidf)
+		tfidfs.append(tf * idf)
 	return tfidfs
 
 def readDataset(path):
