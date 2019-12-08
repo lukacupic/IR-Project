@@ -1,47 +1,12 @@
-# uncomment if necessary
-# nltk.download('stopwords')
-# nltk.download('wordnet')
-
+import importlib
 import math
-import re
 import os
 
-from nltk.corpus import stopwords
-from num2words import num2words
 from collections import Counter
 from tika import parser
-from nltk import stem
 import numpy as np
-import nltk
 
-ps = stem.PorterStemmer()
-lm = stem.WordNetLemmatizer()
-
-stops = stopwords.words('english')
-letter = re.compile("^[a-z][A-Z]$")
-number = re.compile("^[-+]?[0-9]+$")
-
-def preprocess(text):
-	# get all the words
-	words = re.findall(r'\w+', text.lower())
-	
-	# remove stop words
-	words = [w for w in words if w not in stops]
-	
-	# remove matched words
-	words = [w for w in words if not letter.match(w)]
-	
-	# convert numbers
-	words = [num2words(w) if number.match(w) else w for w in words]
-	
-	# perform stemming
-	words = [ps.stem(w) for w in words]
-	
-	# perform lemmatization
-	words = [lm.lemmatize(w, pos="v") for w in words]
-	
-	# return a list of words, essentially representing a document
-	return words
+from preprocess import Preprocessor
 
 def toBitVector(d, corpusVector):
 	bv = []
@@ -95,6 +60,8 @@ def readDataset(path):
 	documents = []
 	counter = 0
 	
+	preprocessor = Preprocessor()
+	
 	for root, subdirs, files in os.walk(path):
 		for filename in files:
 			filePath = os.path.join(root, filename)
@@ -105,7 +72,7 @@ def readDataset(path):
 			raw = parser.from_file(filePath)
 			data = raw["content"].lower()
 		
-			words = preprocess(data)
+			words = preprocessor.preprocess(data)
 			
 			corpusVector.update(words)
 			documents.append(words)
