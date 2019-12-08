@@ -5,8 +5,16 @@ import os
 from collections import Counter
 from tika import parser
 import numpy as np
+import pickle
 
 from preprocess import Preprocessor
+
+#-------------------------------------
+
+# TODO clean up the variables here
+filename = "data-tf_idf.p"
+
+#-------------------------------------
 
 def toBitVector(d, corpusVector):
 	bv = []
@@ -14,7 +22,10 @@ def toBitVector(d, corpusVector):
 		bv.append(1 if w in d else 0)
 	return np.array(bv)
 
-def logTransform(vector):
+def identity(vector, k):
+	return vector
+
+def logTransform(vector, k):
 	return np.log10(1 + vector)
 
 def bm25Transform(vector, k):
@@ -27,12 +38,12 @@ def toTfVector(d, corpusVector):
 		tf.append(counts[w])
 	return np.array(tf)
 
-def createTfVectors(documents, corpusVector):
+def createTfVectors(documents, corpusVector, transform=None, k=None):
 	tfs = []
 	for d in documents:
 		vector = toTfVector(d, corpusVector)
-		#vector = logTransform(vector)
-		#vector = bm25Transform(vector, k=0.85)
+		if transform is not None:
+			vector = transform(vector, k)
 		tfs.append(vector)
 	return tfs
 
@@ -82,21 +93,20 @@ def readDataset(path):
 def main():
 	corpusVector, documents = readDataset('./dataset-small')
 	
-	tfs = createTfVectors(documents, corpusVector)
-	idf = createIdfVector(corpusVector, tfs, documents)
-	tfidfs = createTfIdfVectors(tfs, idf)
+	# create the main vectors if not already serialized
+	if not os.path.exists(filename):
+		tfs = createTfVectors(documents, corpusVector, transform=identity)
+		idf = createIdfVector(corpusVector, tfs, documents)
+		tf_idfs = createTfIdfVectors(tfs, idf)
 		
+		# serialize the vectors for future use
+		pickle.dump([tfs, idf, tf_idfs], open(filename, "wb"))
+	# else load vectors from the file
+	else:
+		tfs, idf, tf_idfs = pickle.load(open(filename, "rb"))
+								  
 	print(corpusVector)
-	for tfidf in tfidfs:
-		print(tfidf)
-
+	for tf_idf in tf_idfs:
+		print(tf_idf)
+		
 main()
-
-
-
-
-
-
-
-
-
