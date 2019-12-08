@@ -52,6 +52,9 @@ def toBitVector(d, corpusVector):
 def logTransform(vector):
 	return np.log10(1 + vector)
 
+def bm25Transform(vector, k):
+	return ((k + 1) * vector) / (k + vector)
+
 def toTfVector(d, corpusVector):
 	tf = []
 	counts = Counter(d)
@@ -63,26 +66,27 @@ def createTfVectors(documents, corpusVector):
 	tfs = []
 	for d in documents:
 		vector = toTfVector(d, corpusVector)
-		# vector = logTransform(vector)
+		#vector = logTransform(vector)
+		#vector = bm25Transform(vector, k=0.85)
 		tfs.append(vector)
 	return tfs
 
-def createIdfVector(corpusList, tfVectors, documents):
-	corpusLen = len(corpusList)
+def createIdfVector(corpusVector, tfs, documents):
+	corpusLen = len(corpusVector)
 	docsLen = len(documents)
 	
 	idf = []
 	for i in range(corpusLen):
 		count = 0
-		for tf in tfVectors:
+		for tf in tfs:
 			if tf[i] != 0:
 				count = count + 1
 		idf.append(np.log10(docsLen / count))
 	return np.array(idf)
 
-def createTfIdfVectors(idf, tfVectors):
+def createTfIdfVectors(tfs, idf):
 	tfidfs = []
-	for tf in tfVectors:
+	for tf in tfs:
 		tfidfs.append(tf * idf)
 	return tfidfs
 
@@ -112,8 +116,8 @@ def main():
 	corpusVector, documents = readDataset('./dataset-small')
 	
 	tfs = createTfVectors(documents, corpusVector)
-	idf = createIdfVector(list(corpusVector), tfs, documents)
-	tfidfs = createTfIdfVectors(idf, tfs)
+	idf = createIdfVector(corpusVector, tfs, documents)
+	tfidfs = createTfIdfVectors(tfs, idf)
 		
 	print(corpusVector)
 	for tfidf in tfidfs:
