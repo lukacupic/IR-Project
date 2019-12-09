@@ -12,7 +12,9 @@ from preprocess import Preprocessor
 #-------------------------------------
 
 # TODO clean up the variables here
-filename = "data-tf_idf.p"
+filename = "data-tf_idf.pickle"
+
+preprocessor = Preprocessor()
 
 #-------------------------------------
 
@@ -38,14 +40,18 @@ def toTfVector(d, corpusVector):
 		tf.append(counts[w])
 	return np.array(tf)
 
+def toTfVectorDoc(d, corpusVector):
+	tf = []
+	counts = Counter(d[0])
+	for w in corpusVector:
+		tf.append(counts[w])
+	d.append(np.array(tf))
+
 def createTfVectors(documents, corpusVector, transform=None, k=None):
-	tfs = []
 	for d in documents:
-		vector = toTfVector(d, corpusVector)
-		if transform is not None:
-			vector = transform(vector, k)
-		tfs.append(vector)
-	return tfs
+		toTfVectorDoc(d, corpusVector)
+		#if transform is not None:
+		#	vector = transform(vector, k)
 
 def createIdfVector(corpusVector, tfs, documents):
 	corpusLen = len(corpusVector)
@@ -60,18 +66,10 @@ def createIdfVector(corpusVector, tfs, documents):
 		idf.append(np.log10(docsLen / count))
 	return np.array(idf)
 
-def createTfIdfVectors(tfs, idf):
-	tfidfs = []
-	for tf in tfs:
-		tfidfs.append(tf * idf)
-	return tfidfs
-
 def readDataset(path):
 	corpusVector = set()
 	documents = []
 	counter = 0
-	
-	preprocessor = Preprocessor()
 	
 	for root, subdirs, files in os.walk(path):
 		for filename in files:
@@ -86,27 +84,39 @@ def readDataset(path):
 			words = preprocessor.preprocess(data)
 			
 			corpusVector.update(words)
-			documents.append(words)
+			documents.append([words, filePath])
 	
 	return corpusVector, documents
 
 def main():
 	corpusVector, documents = readDataset('./dataset-small')
 	
-	# create the main vectors if not already serialized
 	if not os.path.exists(filename):
-		tfs = createTfVectors(documents, corpusVector, transform=identity)
+		createTfVectors(documents, corpusVector, transform=identity)
+		tfs = [row[2] for row in documents]
 		idf = createIdfVector(corpusVector, tfs, documents)
-		tf_idfs = createTfIdfVectors(tfs, idf)
 		
-		# serialize the vectors for future use
-		pickle.dump([tfs, idf, tf_idfs], open(filename, "wb"))
-	# else load vectors from the file
+		for d in documents:
+			d[2] = d[2] * idf
+		
+		#pickle.dump([tfs, idf, tf_idfs], open(filename, "wb"))
 	else:
-		tfs, idf, tf_idfs = pickle.load(open(filename, "rb"))
-								  
-	print(corpusVector)
-	for tf_idf in tf_idfs:
-		print(tf_idf)
+		#tfs, idf, tf_idfs = pickle.load(open(filename, "rb"))
+		pass
+
+	query = "mathematics deals with numbers, patterns, statistics, and game theory"
+	#query = "astronomy is a branch of science that deals with stars, galaxies, and even physics"
+	#query = "biology analyzes natural processes, humans, animals, plants, and bacteria"
+	
+	words = preprocessor.preprocess(query)
+	q_tf = toTfVector(words, corpusVector)
+	q_tf_idf = q_tf * idf
+	
+	sims = []
+	for d in documents:
+		tf_idf = d[2]
+		denom = np.linalg.norm(q_tf_idf) * np.linalg.norm(tf_idf)
+		sim = np.dot(q_tf_idf, tf_idf) / denom
+		print(sim, d[1])
 		
 main()
