@@ -50,8 +50,8 @@ def toTfVectorDoc(d, corpusVector):
 def createTfVectors(documents, corpusVector, transform=None, k=None):
 	for d in documents:
 		toTfVectorDoc(d, corpusVector)
-		#if transform is not None:
-		#	vector = transform(vector, k)
+		if transform is not None:
+			d[2] = transform(d[2], k)
 
 def createIdfVector(corpusVector, tfs, documents):
 	corpusLen = len(corpusVector)
@@ -92,7 +92,7 @@ def main():
 	corpusVector, documents = readDataset('./dataset-small')
 	
 	if not os.path.exists(filename):
-		createTfVectors(documents, corpusVector, transform=identity)
+		createTfVectors(documents, corpusVector, transform=bm25Transform, k=0.1)
 		tfs = [row[2] for row in documents]
 		idf = createIdfVector(corpusVector, tfs, documents)
 		
@@ -103,20 +103,66 @@ def main():
 	else:
 		#tfs, idf, tf_idfs = pickle.load(open(filename, "rb"))
 		pass
+	
+	xyz = [row[2] for row in documents]
+	print(np.sum(xyz))
 
-	query = "mathematics deals with numbers, patterns, statistics, and game theory"
-	#query = "astronomy is a branch of science that deals with stars, galaxies, and even physics"
-	#query = "biology analyzes natural processes, humans, animals, plants, and bacteria"
+	query = "big dragons"
 	
 	words = preprocessor.preprocess(query)
 	q_tf = toTfVector(words, corpusVector)
 	q_tf_idf = q_tf * idf
 	
-	sims = []
+	k = 0.1
+	q_tf_weigth =   ((k+1)*q_tf)/(q_tf+k)
+	q_tf_weigth_idf = q_tf_weigth * idf
+	q_tf_idf = q_tf_weigth_idf
+	
 	for d in documents:
 		tf_idf = d[2]
 		denom = np.linalg.norm(q_tf_idf) * np.linalg.norm(tf_idf)
 		sim = np.dot(q_tf_idf, tf_idf) / denom
 		print(sim, d[1])
 		
-main()
+def main_bm25():
+	corpusVector, documents = readDataset('./dataset-small')
+
+	if not os.path.exists(filename):
+		createTfVectors(documents, corpusVector, transform=identity)
+		tfs = [row[2] for row in documents]
+		
+		k = 0.1
+		w_tfs = ((k+1)*np.array(tfs))/(np.array(tfs)+k)
+		idf = createIdfVector(corpusVector, tfs, documents)
+		
+		w_idf = createIdfVector(corpusVector, w_tfs, documents)
+		for d in documents:
+			d[2] = d[2] * w_idf
+		
+		#pickle.dump([tfs, idf, tf_idfs], open(filename, "wb"))
+	else:
+		#tfs, idf, tf_idfs = pickle.load(open(filename, "rb"))
+		pass
+	
+
+	xyz = [row[2] for row in documents]
+	print(np.sum(xyz))
+	
+	query = "big dragons"
+	
+	words = preprocessor.preprocess(query)
+	q_tf = toTfVector(words, corpusVector)
+
+	q_tf_weigth =   ((k+1)*q_tf)/(q_tf+k)
+	q_tf_weigth_idf = q_tf_weigth * idf
+	#print('tfs: ',q_tf,'     ','w_tfs: ',q_tf_weigth)
+	
+	for d in documents:
+		w_tf_idf = d[2]
+		denom = np.linalg.norm(q_tf_weigth_idf) * np.linalg.norm(w_tf_idf)
+		sim = np.dot(q_tf_weigth_idf, w_tf_idf) / denom
+		print(sim, d[1])
+
+#main()
+main_bm25()
+#main_okapi()
