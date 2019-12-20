@@ -8,7 +8,6 @@ from preprocess import Preprocessor
 from transform import *
 from method import *
 
-filename = "tf_idf-bm25.pickle"
 preprocessor = Preprocessor()
 
 
@@ -24,7 +23,7 @@ def readDataset(path):
     counter = 0
     categories = []
 
-    file = 0
+    file = 1
 
     for root, subdirs, files in os.walk(path):
         if counter != 0:
@@ -98,16 +97,20 @@ def computeScores(matrix):
 
 
 def main():
-    # transform = IdentityTransform()
-    transform = BM25Transform(k=0.1)
+    transform = IdentityTransform()
+    # transform = BM25Transform(k=0.1)
     # transform = LogTransform()
 
-    method = Tf()
     # method = BitVector()
-    # method = TfIdf()
+    # method = Tf()
+    method = TfIdf()
+
+    filename = method.getName() + "-" + transform.getName() + ".pickle"
 
     if not os.path.exists(filename):
         corpusVector, documents, categories = readDataset('./dataset')
+        # pickle.dump([corpusVector, documents, categories], open("./bla", "wb"))
+        # corpusVector, documents, categories = pickle.load(open("./bla", "rb"))
 
         method.setCorpusVector(corpusVector)
 

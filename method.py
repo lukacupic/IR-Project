@@ -16,6 +16,9 @@ class Method:
     def setCorpusVector(self, corpusVector):
         self.corpusVector = corpusVector
 
+    def getName(self):
+        pass
+
 
 class BitVector(Method):
 
@@ -24,9 +27,13 @@ class BitVector(Method):
 
     def getVector(self, words):
         bv = []
+        counts = Counter(words)
         for w in self.corpusVector:
-            bv.append(1 if w in words else 0)
+            bv.append(1 if counts[w] > 0 else 0)
         return np.array(bv)
+
+    def getName(self):
+        return "bv"
 
 
 class Tf(Method):
@@ -40,6 +47,9 @@ class Tf(Method):
         for w in self.corpusVector:
             tf.append(counts[w])
         return np.array(tf)
+
+    def getName(self):
+        return "tf"
 
 
 class TfIdf(Method):
@@ -66,3 +76,6 @@ class TfIdf(Method):
                     count = count + 1
             idf.append(np.log10((docsLen + 1) / float(count)))
         return np.array(idf)
+
+    def getName(self):
+        return "tf_idf"

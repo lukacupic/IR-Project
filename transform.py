@@ -14,6 +14,9 @@ class Transform:
             tf = self.transform(d.getTf())
             d.setTf(tf)
 
+    def getName(self):
+        pass
+
 
 class IdentityTransform(Transform):
 
@@ -22,6 +25,9 @@ class IdentityTransform(Transform):
 
     def transform(self, vector):
         return vector
+
+    def getName(self):
+        return "identity"
 
 
 class BM25Transform(Transform):
@@ -33,6 +39,9 @@ class BM25Transform(Transform):
     def transform(self, vector):
         return ((self.k + 1) * vector) / (self.k + vector)
 
+    def getName(self):
+        return "bm25"
+
 
 class LogTransform(Transform):
 
@@ -41,3 +50,6 @@ class LogTransform(Transform):
 
     def transform(self, vector):
         return np.log10(1 + vector)
+
+    def getName(self):
+        return "log"
