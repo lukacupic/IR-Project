@@ -1,12 +1,14 @@
 import os
 from collections import Counter
 
-import numpy as np
 from tika import parser
+import pickle
 
+from document import Document
 from preprocess import Preprocessor
+from transform import *
 
-filename = "tf_idf.pickle"
+filename = "tf_idf-identity.pickle"
 preprocessor = Preprocessor()
 
 
@@ -17,39 +19,18 @@ def toBitVector(d, corpusVector):
     return np.array(bv)
 
 
-def toTfVector(d, corpusVector):
+def toTfVector(words, corpusVector):
     tf = []
-    counts = Counter(d)
+    counts = Counter(words)
     for w in corpusVector:
         tf.append(counts[w])
     return np.array(tf)
 
 
-def toTfVectorDoc(d, corpusVector):
-    tf = []
-    counts = Counter(d[0])
-    for w in corpusVector:
-        tf.append(counts[w])
-    d.append(np.array(tf))
-
-
-def identity(vector, k):
-    return vector
-
-
-def logTransform(vector, k):
-    return np.log10(1 + vector)
-
-
-def bm25Transform(vector, k):
-    return ((k + 1) * vector) / (k + vector)
-
-
-def createTfVectors(documents, corpusVector, transform=None, k=None):
+def createTfVectors(documents, corpusVector):
     for d in documents:
-        toTfVectorDoc(d, corpusVector)
-        if transform is not None:
-            d[2] = transform(d[2], k)
+        tf = toTfVector(d.getWords(), corpusVector)
+        d.setTf(tf)
 
 
 def createIdfVector(corpusVector, tfs, documents):
@@ -72,6 +53,8 @@ def readDataset(path):
     counter = 0
     categories = []
 
+    file = 0
+
     for root, subdirs, files in os.walk(path):
         if counter != 0:
             categories.append([root, len(files)])
@@ -79,6 +62,9 @@ def readDataset(path):
         counter = counter + 1
         for filename in files:
             filePath = os.path.join(root, filename)
+
+            print("Reading file %d/148" % file)
+            file = file + 1
 
             if not filePath.endswith('.pdf') and not filePath.endswith('.txt'):
                 continue
@@ -89,7 +75,8 @@ def readDataset(path):
             words = preprocessor.preprocess(data)
 
             corpusVector.update(words)
-            documents.append([words, filePath])
+            d = Document(words, filePath, None, None)
+            documents.append(d)
 
     return corpusVector, documents, categories
 
@@ -102,22 +89,22 @@ def isRelevant(document, top_n):
 
 
 def evaluate(docs, path, top_n):
-    print(top_n)
     matrix = [[0, 0], [0, 0]]
 
     for d in docs:
         relevant = isRelevant(d, top_n)
+        dPath = d[1]
 
-        if path in d[1] and relevant:
+        if path in dPath and relevant:
             matrix[0][0] = matrix[0][0] + 1
 
-        if path not in d[1] and relevant:
+        if path not in dPath and relevant:
             matrix[0][1] = matrix[0][1] + 1
 
-        if path in d[1] and not relevant:
+        if path in dPath and not relevant:
             matrix[1][0] = matrix[1][0] + 1
 
-        if path not in d[1] and not relevant:
+        if path not in dPath and not relevant:
             matrix[1][1] = matrix[1][1] + 1
     return matrix
 
@@ -140,19 +127,24 @@ def computeScores(matrix):
 
 
 def main():
-    corpusVector, documents, categories = readDataset('./dataset-small')
+    transform = IdentityTransform()
+    # transform = BM25Transform(k=0.1)
+    # transform = LogTransform()
 
     if not os.path.exists(filename):
-        createTfVectors(documents, corpusVector, transform=bm25Transform, k=0.1)
-        tfs = [row[2] for row in documents]
+        corpusVector, documents, categories = readDataset('./dataset')
+
+        createTfVectors(documents, corpusVector)
+        transform.transformDocuments(documents)
+
+        tfs = [d.getTf() for d in documents]
         idf = createIdfVector(corpusVector, tfs, documents)
 
         for d in documents:
-            d[2] = d[2] * idf
-    # pickle.dump([tfs, idf, tf_idfs], open(filename, "wb"))
+            d.setTfIdf(d.getTf() * idf)
+        pickle.dump([corpusVector, documents, categories, tfs, idf], open(filename, "wb"))
     else:
-        # tfs, idf, tf_idfs = pickle.load(open(filename, "rb"))
-        pass
+        corpusVector, documents, categories, tfs, idf = pickle.load(open(filename, "rb"))
 
     for c in categories:
         query = os.path.basename(c[0])
@@ -162,13 +154,12 @@ def main():
         words = preprocessor.preprocess(query)
         q_tf = toTfVector(words, corpusVector)
 
-        k = 0.1
-        q_tf_weigth = ((k + 1) * q_tf) / (q_tf + k)
+        q_tf_weigth = transform.transform(q_tf)
         q_tf_weigth_idf = q_tf_weigth * idf
 
         sims = []
         for d in documents:
-            tf_idf = d[2]
+            tf_idf = d.getTfIdf()
             denom = np.linalg.norm(q_tf_weigth_idf) * np.linalg.norm(tf_idf)
 
             if denom is 0:
@@ -176,7 +167,7 @@ def main():
                 continue
 
             sim = np.dot(q_tf_weigth_idf, tf_idf) / denom
-            sims.append((sim, d[1]))
+            sims.append((sim, d.getPath()))
 
         sims_sorted = sorted(sims, key=lambda tup: -tup[0])
         matrix = evaluate(sims_sorted, c[0], sims_sorted[:n])
