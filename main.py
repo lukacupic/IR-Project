@@ -1,5 +1,4 @@
 import os
-from collections import Counter
 
 from tika import parser
 import pickle
@@ -7,44 +6,16 @@ import pickle
 from document import Document
 from preprocess import Preprocessor
 from transform import *
+from method import *
 
-filename = "tf_idf-identity.pickle"
+filename = "tf_idf-bm25.pickle"
 preprocessor = Preprocessor()
 
 
-def toBitVector(d, corpusVector):
-    bv = []
-    for w in corpusVector:
-        bv.append(1 if w in d else 0)
-    return np.array(bv)
-
-
-def toTfVector(words, corpusVector):
-    tf = []
-    counts = Counter(words)
-    for w in corpusVector:
-        tf.append(counts[w])
-    return np.array(tf)
-
-
-def createTfVectors(documents, corpusVector):
+def createVectors(documents, method):
     for d in documents:
-        tf = toTfVector(d.getWords(), corpusVector)
+        tf = method.getVector(d.getWords())
         d.setTf(tf)
-
-
-def createIdfVector(corpusVector, tfs, documents):
-    corpusLen = len(corpusVector)
-    docsLen = len(documents)
-
-    idf = []
-    for i in range(corpusLen):
-        count = 0
-        for tf in tfs:
-            if tf[i] != 0:
-                count = count + 1
-        idf.append(np.log10((docsLen + 1) / float(count)))
-    return np.array(idf)
 
 
 def readDataset(path):
@@ -127,24 +98,33 @@ def computeScores(matrix):
 
 
 def main():
-    transform = IdentityTransform()
-    # transform = BM25Transform(k=0.1)
+    # transform = IdentityTransform()
+    transform = BM25Transform(k=0.1)
     # transform = LogTransform()
+
+    method = Tf()
+    # method = BitVector()
+    # method = TfIdf()
 
     if not os.path.exists(filename):
         corpusVector, documents, categories = readDataset('./dataset')
 
-        createTfVectors(documents, corpusVector)
+        method.setCorpusVector(corpusVector)
+
+        createVectors(documents, method)
         transform.transformDocuments(documents)
 
         tfs = [d.getTf() for d in documents]
-        idf = createIdfVector(corpusVector, tfs, documents)
+        idf = method.getIdf(tfs, documents)
 
         for d in documents:
             d.setTfIdf(d.getTf() * idf)
+
         pickle.dump([corpusVector, documents, categories, tfs, idf], open(filename, "wb"))
+
     else:
         corpusVector, documents, categories, tfs, idf = pickle.load(open(filename, "rb"))
+        method.setCorpusVector(corpusVector)
 
     for c in categories:
         query = os.path.basename(c[0])
@@ -152,7 +132,7 @@ def main():
         n = c[1]
 
         words = preprocessor.preprocess(query)
-        q_tf = toTfVector(words, corpusVector)
+        q_tf = method.getVector(words)
 
         q_tf_weigth = transform.transform(q_tf)
         q_tf_weigth_idf = q_tf_weigth * idf

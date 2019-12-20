@@ -18,7 +18,7 @@ class Transform:
 class IdentityTransform(Transform):
 
     def __init__(self):
-        pass
+        super().__init__()
 
     def transform(self, vector):
         return vector
@@ -27,6 +27,7 @@ class IdentityTransform(Transform):
 class BM25Transform(Transform):
 
     def __init__(self, k):
+        super().__init__()
         self.k = k
 
     def transform(self, vector):
