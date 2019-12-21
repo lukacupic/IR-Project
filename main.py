@@ -97,8 +97,9 @@ def computeScores(matrix):
 
 
 def main():
-    transform = IdentityTransform()
+    # transform = IdentityTransform()
     # transform = BM25Transform(k=0.1)
+    transform = BM25OkapiTransform(k=1.4, b=0.75, docs=None)
     # transform = LogTransform()
 
     # method = BitVector()
@@ -109,8 +110,9 @@ def main():
 
     if not os.path.exists(filename):
         corpusVector, documents, categories = readDataset('./dataset')
-        # pickle.dump([corpusVector, documents, categories], open("./bla", "wb"))
-        # corpusVector, documents, categories = pickle.load(open("./bla", "rb"))
+
+        # only if transform is BM25 Okapi (sloppy but working)
+        transform = BM25OkapiTransform(k=1.4, b=0.75, docs=documents)
 
         method.setCorpusVector(corpusVector)
 
@@ -128,6 +130,9 @@ def main():
     else:
         corpusVector, documents, categories, tfs, idf = pickle.load(open(filename, "rb"))
         method.setCorpusVector(corpusVector)
+
+        # only if transform is BM25 Okapi (sloppy but working)
+        transform = BM25OkapiTransform(k=1.4, b=0.75, docs=documents)
 
     for c in categories:
         query = os.path.basename(c[0])

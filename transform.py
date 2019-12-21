@@ -43,6 +43,31 @@ class BM25Transform(Transform):
         return "bm25"
 
 
+class BM25OkapiTransform(Transform):
+
+    def __init__(self, k, b, docs):
+        super().__init__()
+        self.k = k
+        self.b = b
+        self.docs = docs
+
+        if docs is not None:
+            self.calculateAvdl()
+
+    def transform(self, vector):
+        denom = vector + self.k * (1 - self.b + self.b * len(vector) / self.avdl)
+        return ((self.k + 1) * vector) / denom
+
+    def calculateAvdl(self):
+        avdl = 0
+        for d in self.docs:
+            avdl = avdl + len(d.getWords())
+        self.avdl = avdl / float(len(self.docs))
+
+    def getName(self):
+        return "bm25-okapi"
+
+
 class LogTransform(Transform):
 
     def __init__(self):
