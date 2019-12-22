@@ -64,6 +64,18 @@ class TfIdf(Method):
             tf.append(counts[w])
         return np.array(tf)
 
+    def getIdf(self, tfs, documents):
+        corpusLen = len(self.corpusVector)
+        docsLen = len(documents)
+
+        idf = []
+        for i in range(corpusLen):
+            count = 0
+            for tf in tfs:
+                if tf[i] != 0:
+                    count = count + 1
+            idf.append(np.log10((docsLen + 1) / float(count)))
+        return np.array(idf)
 
     def getName(self):
         return "tf_idf"
