@@ -24,7 +24,7 @@ def setVectors(documents, tfs, idf):
 
 
 def readDataset(path, preprocessor):
-    corpusVector = set()
+    corpusVector = []
     documents = []
     counter = 0
     categories = []
@@ -39,7 +39,7 @@ def readDataset(path, preprocessor):
         for filename in files:
             filePath = os.path.join(root, filename)
 
-            print("Reading file %d/148" % file)
+            print("Reading file %d..." % file)
             file = file + 1
 
             if not filePath.endswith('.pdf') and not filePath.endswith('.txt'):
@@ -50,13 +50,17 @@ def readDataset(path, preprocessor):
 
             words = preprocessor.preprocess(data)
 
-            corpusVector.update(words)
+            for w in words:
+                if w not in corpusVector:
+                    corpusVector.append(w)
+
             d = Document(words, filePath, None, None)
             documents.append(d)
 
     return corpusVector, documents, categories
 
 
+# does the document exist in the top N documents?
 def isRelevant(document, top_n):
     for d in top_n:
         if document[1] == d[1]:
@@ -106,21 +110,22 @@ def computeScores(matrix):
 def main():
     preprocessor = Preprocessor()
 
-    transform = IdentityTransform()
-    # transform = BM25Transform(k=1.5)
-    # transform = BM25OkapiTransform(k=1.5, b=0.75)
-    # transform = LogTransform()
+    # transform = IdentityTransform()
+    # transform = BM25Transform(k=1.4)
+    # transform = BM25OkapiTransform(k=1.4, b=0.75)
+    transform = LogTransform()
 
-    method = BitVector()
+    # method = BitVector()
     # method = Tf()
-    # method = TfIdf()
+    method = TfIdf()
 
-    vectorsFile = "./pickle/" + method.getName() + "-" + transform.getName() + ".pickle"
-    documentsFile = "./pickle/" + "documents.pickle"
+    datasetName = "dataset"
+    vectorsFile = "./pickle/" + datasetName + "-" + method.getName() + "-" + transform.getName() + ".pickle"
+    documentsFile = "./pickle/" + datasetName + "-documents.pickle"
 
     # check for documents
     if not os.path.exists(documentsFile):
-        corpusVector, documents, categories = readDataset('./dataset', preprocessor)
+        corpusVector, documents, categories = readDataset("./" + datasetName, preprocessor)
         pickle.dump([corpusVector, documents, categories], open(documentsFile, "wb"))
     else:
         corpusVector, documents, categories = pickle.load(open(documentsFile, "rb"))
@@ -166,6 +171,10 @@ def main():
 
             sim = np.dot(tf_idf_q, tf_idf) / denom
             sims.append((sim, d.getPath()))
+
+        sum = 0
+        for d in documents:
+            sum = sum + np.sum(d.getTfIdf())
 
         sims_sorted = sorted(sims, key=lambda tup: -tup[0])
         matrix = evaluate(sims_sorted, c[0], sims_sorted[:n])
