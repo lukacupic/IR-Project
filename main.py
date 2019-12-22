@@ -8,16 +8,22 @@ from preprocess import Preprocessor
 from transform import *
 from method import *
 
-preprocessor = Preprocessor()
-
 
 def createVectors(documents, method):
     for d in documents:
         tf = method.getVector(d.getWords())
         d.setTf(tf)
+    return
 
 
-def readDataset(path):
+def setVectors(documents, tfs, idf):
+    for i in range(len(documents)):
+        documents[i].setTf(tfs[i])
+        documents[i].setTfIdf(tfs[i] * idf)
+    return
+
+
+def readDataset(path, preprocessor):
     corpusVector = set()
     documents = []
     counter = 0
@@ -82,40 +88,48 @@ def evaluate(docs, path, top_n):
 def computeScores(matrix):
     tp = matrix[0][0]
     fp = matrix[0][1]
-    tn = matrix[1][0]
-    fn = matrix[1][1]
+    fn = matrix[1][0]
+    tn = matrix[1][1]
 
     acc = (tp + tn) / np.float64(tp + tn + fp + fn)
     pre = tp / np.float64(tp + fp)
     rec = tp / np.float64(tp + fn)
-    f1 = 2 * pre * rec / np.float64(pre + rec)
+    f1 = 2 * tp / np.float64(2 * tp + fp + fn)
 
     print("Accuracy:  %.4f" % acc)
     print("Precision: %.4f" % pre)
     print("Recall:    %.4f" % rec)
     print("F1:        %.4f" % f1)
+    return
 
 
 def main():
-    # transform = IdentityTransform()
-    # transform = BM25Transform(k=0.1)
-    transform = BM25OkapiTransform(k=1.4, b=0.75, docs=None)
+    preprocessor = Preprocessor()
+
+    transform = IdentityTransform()
+    # transform = BM25Transform(k=1.5)
+    # transform = BM25OkapiTransform(k=1.5, b=0.75)
     # transform = LogTransform()
 
-    # method = BitVector()
+    method = BitVector()
     # method = Tf()
-    method = TfIdf()
+    # method = TfIdf()
 
-    filename = method.getName() + "-" + transform.getName() + ".pickle"
+    vectorsFile = "./pickle/" + method.getName() + "-" + transform.getName() + ".pickle"
+    documentsFile = "./pickle/" + "documents.pickle"
 
-    if not os.path.exists(filename):
-        corpusVector, documents, categories = readDataset('./dataset')
+    # check for documents
+    if not os.path.exists(documentsFile):
+        corpusVector, documents, categories = readDataset('./dataset', preprocessor)
+        pickle.dump([corpusVector, documents, categories], open(documentsFile, "wb"))
+    else:
+        corpusVector, documents, categories = pickle.load(open(documentsFile, "rb"))
 
-        # only if transform is BM25 Okapi (sloppy but working)
-        transform = BM25OkapiTransform(k=1.4, b=0.75, docs=documents)
+    method.setCorpusVector(corpusVector)
+    transform.setDocuments(documents)
 
-        method.setCorpusVector(corpusVector)
-
+    # check for vectors
+    if not os.path.exists(vectorsFile):
         createVectors(documents, method)
         transform.transformDocuments(documents)
 
@@ -125,14 +139,11 @@ def main():
         for d in documents:
             d.setTfIdf(d.getTf() * idf)
 
-        pickle.dump([corpusVector, documents, categories, tfs, idf], open(filename, "wb"))
+        pickle.dump([tfs, idf], open(vectorsFile, "wb"))
 
     else:
-        corpusVector, documents, categories, tfs, idf = pickle.load(open(filename, "rb"))
-        method.setCorpusVector(corpusVector)
-
-        # only if transform is BM25 Okapi (sloppy but working)
-        transform = BM25OkapiTransform(k=1.4, b=0.75, docs=documents)
+        tfs, idf = pickle.load(open(vectorsFile, "rb"))
+        setVectors(documents, tfs, idf)
 
     for c in categories:
         query = os.path.basename(c[0])
@@ -140,21 +151,20 @@ def main():
         n = c[1]
 
         words = preprocessor.preprocess(query)
-        q_tf = method.getVector(words)
 
-        q_tf_weigth = transform.transform(q_tf)
-        q_tf_weigth_idf = q_tf_weigth * idf
+        tf_q = transform.transform(method.getVector(words))
+        tf_idf_q = tf_q * idf
 
         sims = []
         for d in documents:
             tf_idf = d.getTfIdf()
-            denom = np.linalg.norm(q_tf_weigth_idf) * np.linalg.norm(tf_idf)
+            denom = np.linalg.norm(tf_idf_q) * np.linalg.norm(tf_idf)
 
             if denom is 0:
                 print("The given query is not present in the collection.")
                 continue
 
-            sim = np.dot(q_tf_weigth_idf, tf_idf) / denom
+            sim = np.dot(tf_idf_q, tf_idf) / denom
             sims.append((sim, d.getPath()))
 
         sims_sorted = sorted(sims, key=lambda tup: -tup[0])

@@ -17,6 +17,9 @@ class Transform:
     def getName(self):
         pass
 
+    def setDocuments(self, docs):
+        self.docs = docs
+
 
 class IdentityTransform(Transform):
 
@@ -45,14 +48,10 @@ class BM25Transform(Transform):
 
 class BM25OkapiTransform(Transform):
 
-    def __init__(self, k, b, docs):
+    def __init__(self, k, b):
         super().__init__()
         self.k = k
         self.b = b
-        self.docs = docs
-
-        if docs is not None:
-            self.calculateAvdl()
 
     def transform(self, vector):
         denom = vector + self.k * (1 - self.b + self.b * len(vector) / self.avdl)
@@ -66,6 +65,10 @@ class BM25OkapiTransform(Transform):
 
     def getName(self):
         return "bm25-okapi"
+
+    def setDocuments(self, docs):
+        super().setDocuments(docs)
+        self.calculateAvdl()
 
 
 class LogTransform(Transform):

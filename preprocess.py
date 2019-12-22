@@ -4,8 +4,8 @@
 
 from nltk.corpus import stopwords
 from num2words import num2words
-from nltk import stem
 import nltk
+from nltk import stem
 import re
 
 class Preprocessor:
